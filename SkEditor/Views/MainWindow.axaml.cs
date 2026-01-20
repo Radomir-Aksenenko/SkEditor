@@ -23,6 +23,7 @@ public partial class MainWindow : AppWindow
 {
     private readonly SplashScreen? _splashScreen;
     private bool _isFullyLoaded;
+    private bool _layoutSwitchDetected;
 
     public MainWindow(SplashScreen? splashScreen = null)
     {
@@ -77,6 +78,52 @@ public partial class MainWindow : AppWindow
         };
 
         AddHandler(DragDrop.DropEvent, FileHandler.FileDropAction);
+
+        AddHandler(KeyDownEvent, (_, e) =>
+        {
+            if (e.Key is Key.LeftAlt or Key.RightAlt && e.KeyModifiers.HasFlag(KeyModifiers.Shift))
+            {
+                _layoutSwitchDetected = true;
+            }
+            else if (e.Key is Key.LeftShift or Key.RightShift && e.KeyModifiers.HasFlag(KeyModifiers.Alt))
+            {
+                _layoutSwitchDetected = true;
+            }
+            else if (e.Key is Key.LeftShift or Key.RightShift && e.KeyModifiers.HasFlag(KeyModifiers.Control))
+            {
+                _layoutSwitchDetected = true;
+            }
+            else if (e.Key is Key.LeftCtrl or Key.RightCtrl && e.KeyModifiers.HasFlag(KeyModifiers.Shift))
+            {
+                _layoutSwitchDetected = true;
+            }
+        }, RoutingStrategies.Tunnel);
+
+        AddHandler(KeyUpEvent, (_, e) =>
+        {
+            bool isLayoutSwitchKey = e.Key is Key.LeftAlt or Key.RightAlt 
+                                     or Key.LeftShift or Key.RightShift 
+                                     or Key.LeftCtrl or Key.RightCtrl;
+            
+            if (!isLayoutSwitchKey || !_layoutSwitchDetected)
+            {
+                return;
+            }
+
+            _layoutSwitchDetected = false;
+
+            OpenedFile? currentFile = SkEditorAPI.Files.GetCurrentOpenedFile();
+            if (currentFile?.Editor?.TextArea is not { } textArea)
+            {
+                return;
+            }
+
+            if (textArea.IsFocused)
+            {
+                e.Handled = true;
+                Dispatcher.UIThread.Post(() => textArea.Focus());
+            }
+        }, RoutingStrategies.Tunnel);
     }
 
     public void ReloadUiOfAddons()
